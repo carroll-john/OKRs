@@ -6,9 +6,41 @@ import { prisma } from '@/lib/db';
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const body = await req.json();
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const update = await prisma.weeklyUpdate.create({ data: { ...body, userId: user.id, weekStart: new Date(body.weekStart) } });
+
+  const kr = await prisma.keyResult.findUnique({
+    where: { id: body.keyResultId },
+    include: {
+      objective: {
+        include: {
+          cycle: true,
+        },
+      },
+    },
+  });
+
+  if (!kr) return NextResponse.json({ error: 'Key result not found' }, { status: 404 });
+
+  const membership = await prisma.membership.findUnique({
+    where: {
+      userId_workspaceId: {
+        userId: user.id,
+        workspaceId: kr.objective.cycle.workspaceId,
+      },
+    },
+  });
+
+  if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  if (membership.role === 'MEMBER' && kr.ownerMembershipId !== membership.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const update = await prisma.weeklyUpdate.create({
+    data: { ...body, userId: user.id, weekStart: new Date(body.weekStart) },
+  });
   return NextResponse.json(update);
 }
