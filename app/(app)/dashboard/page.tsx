@@ -47,6 +47,19 @@ export default async function DashboardPage({
     where: {
       workspaceId: activeWorkspaceId,
       status: CycleStatus.ACTIVE,
+  const krs = await prisma.keyResult.findMany({
+    include: {
+      objective: {
+        include: {
+          owner: {
+            include: { user: true },
+          },
+        },
+      },
+      owner: {
+        include: { user: true },
+      },
+      updates: { orderBy: { weekStart: 'desc' }, take: 1 },
     },
     orderBy: { startDate: 'desc' },
     select: { id: true, name: true },
@@ -168,6 +181,9 @@ export default async function DashboardPage({
                 {kr.objective.title} → {kr.title}
               </p>
               <p className="text-sm">Owner: {kr.objective.owner.user.name}</p>
+              <p className="text-sm text-slate-600">
+                KR owner: {kr.owner.user.name}
+              </p>
               <p className="text-sm">
                 Progress: {u ? progress(kr.baseline, kr.target, u.value) : 0}% | Confidence: {u?.confidence ?? 'N/A'} | Status:{' '}
                 {u?.status ?? 'N/A'}
