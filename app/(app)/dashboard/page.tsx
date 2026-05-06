@@ -3,12 +3,15 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { progress } from '@/lib/progress';
+import { Confidence, HealthStatus, CycleStatus } from '@prisma/client';
 
 type DashboardSearchParams = {
   workspaceId?: string;
   ownerId?: string;
   status?: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK';
   confidence?: 'LOW' | 'MEDIUM' | 'HIGH';
+  status?: HealthStatus;
+  confidence?: Confidence;
   staleOnly?: '1';
   blockersOnly?: '1';
 };
@@ -17,11 +20,13 @@ export default async function DashboardPage({
   searchParams,
 }: {
   searchParams?: DashboardSearchParams;
+  searchParams: Promise<DashboardSearchParams>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect('/login');
 
   const params = searchParams ?? {};
+  const params = await searchParams;
 
   const memberships = await prisma.membership.findMany({
     where: { user: { email: session.user.email } },
@@ -39,6 +44,7 @@ export default async function DashboardPage({
   }
 
   const activeWorkspaceId = memberships.some((m: { workspaceId: string }) => m.workspaceId === params.workspaceId)
+  const activeWorkspaceId = memberships.some((m) => m.workspaceId === params.workspaceId)
     ? params.workspaceId!
     : memberships[0].workspaceId;
 
@@ -46,6 +52,20 @@ export default async function DashboardPage({
     where: {
       workspaceId: activeWorkspaceId,
       status: 'ACTIVE',
+      status: CycleStatus.ACTIVE,
+  const krs = await prisma.keyResult.findMany({
+    include: {
+      objective: {
+        include: {
+          owner: {
+            include: { user: true },
+          },
+        },
+      },
+      owner: {
+        include: { user: true },
+      },
+      updates: { orderBy: { weekStart: 'desc' }, take: 1 },
     },
     orderBy: { startDate: 'desc' },
     select: { id: true, name: true },
@@ -83,6 +103,7 @@ export default async function DashboardPage({
     : [];
 
   const krs = krsRaw.filter((kr: any) => {
+  const krs = krsRaw.filter((kr) => {
     const u = kr.updates[0];
     const isStale = !u || u.weekStart < staleDate;
 
@@ -102,6 +123,7 @@ export default async function DashboardPage({
       <form className="grid gap-2 md:grid-cols-6 bg-white border rounded p-3" method="GET">
         <select name="workspaceId" defaultValue={activeWorkspaceId} className="border rounded px-2 py-1">
           {memberships.map((m: { workspaceId: string; workspace: { name: string } }) => (
+          {memberships.map((m) => (
             <option key={m.workspaceId} value={m.workspaceId}>
               {m.workspace.name}
             </option>
@@ -111,6 +133,7 @@ export default async function DashboardPage({
         <select name="ownerId" defaultValue={params.ownerId ?? ''} className="border rounded px-2 py-1">
           <option value="">All team members</option>
           {members.map((member: { userId: string; user: { name: string } }) => (
+          {members.map((member) => (
             <option key={member.userId} value={member.userId}>
               {member.user.name}
             </option>
@@ -120,6 +143,7 @@ export default async function DashboardPage({
         <select name="status" defaultValue={params.status ?? ''} className="border rounded px-2 py-1">
           <option value="">All statuses</option>
           {(['ON_TRACK', 'AT_RISK', 'OFF_TRACK'] as const).map((status) => (
+          {Object.values(HealthStatus).map((status) => (
             <option key={status} value={status}>
               {status}
             </option>
@@ -129,6 +153,7 @@ export default async function DashboardPage({
         <select name="confidence" defaultValue={params.confidence ?? ''} className="border rounded px-2 py-1">
           <option value="">All confidence</option>
           {(['LOW', 'MEDIUM', 'HIGH'] as const).map((confidence) => (
+          {Object.values(Confidence).map((confidence) => (
             <option key={confidence} value={confidence}>
               {confidence}
             </option>
@@ -158,6 +183,7 @@ export default async function DashboardPage({
 
       <div className="grid gap-3">
         {krs.map((kr: any) => {
+        {krs.map((kr) => {
           const u = kr.updates[0];
           const stale = !u || (Date.now() - new Date(u.weekStart).getTime()) / 86400000 > 10;
 
@@ -167,6 +193,9 @@ export default async function DashboardPage({
                 {kr.objective.title} → {kr.title}
               </p>
               <p className="text-sm">Owner: {kr.objective.owner.user.name}</p>
+              <p className="text-sm text-slate-600">
+                KR owner: {kr.owner.user.name}
+              </p>
               <p className="text-sm">
                 Progress: {u ? progress(kr.baseline, kr.target, u.value) : 0}% | Confidence: {u?.confidence ?? 'N/A'} | Status:{' '}
                 {u?.status ?? 'N/A'}
