@@ -1,75 +1,112 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
 
-enum Role { OWNER MANAGER MEMBER }
-enum CycleStatus { PLANNING ACTIVE CLOSED }
-enum Confidence { LOW MEDIUM HIGH }
-enum HealthStatus { ON_TRACK AT_RISK OFF_TRACK }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
+enum CycleStatus {
+  PLANNING
+  ACTIVE
+  CLOSED
+}
+
+enum Confidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum HealthStatus {
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+}
 
 model User {
-  id String @id @default(cuid())
-  name String
-  email String @unique
+  id           String         @id @default(cuid())
+  name         String
+  email        String         @unique
   passwordHash String
-  memberships Membership[]
-  updates WeeklyUpdate[]
+  memberships  Membership[]
+  updates      WeeklyUpdate[]
 }
+
 model Workspace {
-  id String @id @default(cuid())
-  name String
+  id          String       @id @default(cuid())
+  name        String
   memberships Membership[]
-  cycles Cycle[]
+  cycles      Cycle[]
 }
+
 model Membership {
-  id String @id @default(cuid())
-  userId String
-  workspaceId String
-  role Role
-  user User @relation(fields:[userId], references:[id])
-  workspace Workspace @relation(fields:[workspaceId], references:[id])
+  id              String      @id @default(cuid())
+  userId          String
+  workspaceId     String
+  role            Role
+  user            User        @relation(fields: [userId], references: [id])
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id])
+  objectives      Objective[]
+  ownedKeyResults KeyResult[]
+
   @@unique([userId, workspaceId])
 }
+
 model Cycle {
-  id String @id @default(cuid())
+  id          String      @id @default(cuid())
   workspaceId String
-  name String
-  startDate DateTime
-  endDate DateTime
-  status CycleStatus @default(ACTIVE)
-  workspace Workspace @relation(fields:[workspaceId], references:[id])
-  objectives Objective[]
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  status      CycleStatus @default(ACTIVE)
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id])
+  objectives  Objective[]
 }
+
 model Objective {
-  id String @id @default(cuid())
-  cycleId String
-  title String
+  id                String      @id @default(cuid())
+  cycleId           String
+  title             String
   ownerMembershipId String
-  cycle Cycle @relation(fields:[cycleId], references:[id])
-  owner Membership @relation(fields:[ownerMembershipId], references:[id])
-  keyResults KeyResult[]
+  cycle             Cycle       @relation(fields: [cycleId], references: [id])
+  owner             Membership  @relation(fields: [ownerMembershipId], references: [id])
+  keyResults        KeyResult[]
 }
+
 model KeyResult {
-  id String @id @default(cuid())
-  objectiveId String
-  title String
-  metricUnit String
-  baseline Float
-  target Float
-  objective Objective @relation(fields:[objectiveId], references:[id])
-  updates WeeklyUpdate[]
+  id                String         @id @default(cuid())
+  objectiveId       String
+  ownerMembershipId String
+  title             String
+  metricUnit        String
+  baseline          Float
+  target            Float
+  objective         Objective      @relation(fields: [objectiveId], references: [id])
+  owner             Membership     @relation(fields: [ownerMembershipId], references: [id])
+  updates           WeeklyUpdate[]
 }
+
 model WeeklyUpdate {
-  id String @id @default(cuid())
+  id          String       @id @default(cuid())
   keyResultId String
-  userId String
-  weekStart DateTime
-  value Float
-  confidence Confidence
-  status HealthStatus
-  blockers String?
-  nextStep String
-  createdAt DateTime @default(now())
-  keyResult KeyResult @relation(fields:[keyResultId], references:[id])
-  user User @relation(fields:[userId], references:[id])
+  userId      String
+  weekStart   DateTime
+  value       Float
+  confidence  Confidence
+  status      HealthStatus
+  blockers    String?
+  nextStep    String
+  createdAt   DateTime     @default(now())
+  keyResult   KeyResult    @relation(fields: [keyResultId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+
   @@unique([keyResultId, weekStart])
 }
