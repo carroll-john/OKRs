@@ -10,7 +10,16 @@ export default async function DashboardPage() {
 
   const krs = await prisma.keyResult.findMany({
     include: {
-      objective: true,
+      objective: {
+        include: {
+          owner: {
+            include: { user: true },
+          },
+        },
+      },
+      owner: {
+        include: { user: true },
+      },
       updates: { orderBy: { weekStart: 'desc' }, take: 1 },
     },
   });
@@ -33,6 +42,9 @@ export default async function DashboardPage() {
             <div key={kr.id} className="bg-white border rounded p-4">
               <p className="font-medium">
                 {kr.objective.title} → {kr.title}
+              </p>
+              <p className="text-sm text-slate-600">
+                KR owner: {kr.owner.user.name}
               </p>
               <p className="text-sm">
                 Progress: {u ? progress(kr.baseline, kr.target, u.value) : 0}% |
