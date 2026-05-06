@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { toUtcMonday, weeklyUpdateSchema } from '@/lib/validation/weeklyUpdate';
@@ -14,6 +15,17 @@ function validationErrorPayload(fieldErrors: Record<string, string[] | undefined
     },
   };
 }
+import { Confidence, HealthStatus, Role } from '@prisma/client';
+
+const createWeeklyUpdateSchema = z.object({
+  keyResultId: z.string().cuid(),
+  weekStart: z.coerce.date(),
+  value: z.number().finite(),
+  confidence: z.nativeEnum(Confidence),
+  status: z.nativeEnum(HealthStatus),
+  blockers: z.string().trim().optional().nullable(),
+  nextStep: z.string().trim().min(1),
+});
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -73,4 +85,106 @@ export async function POST(req: NextRequest) {
 
     throw error;
   }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const rawBody = await req.json().catch(() => null);
+  const parsed = createWeeklyUpdateSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { keyResultId, weekStart, value, confidence, status, blockers, nextStep } = parsed.data;
+
+  const keyResultExists = await prisma.keyResult.findUnique({
+    where: { id: keyResultId },
+    select: { id: true },
+  });
+
+  if (!keyResultExists) {
+    return NextResponse.json({ error: 'Key result not found' }, { status: 404 });
+  }
+
+  const keyResult = await prisma.keyResult.findFirst({
+    where: {
+      id: keyResultId,
+      objective: {
+        cycle: {
+          workspace: {
+            memberships: {
+              some: {
+                userId: user.id,
+              },
+            },
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      objective: {
+        select: {
+          owner: {
+            select: {
+              userId: true,
+            },
+          },
+          cycle: {
+            select: {
+              workspace: {
+                select: {
+                  id: true,
+                  memberships: {
+                    where: { userId: user.id },
+                    select: { role: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!keyResult) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const membership = keyResult.objective.cycle.workspace.memberships[0];
+  if (!membership) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const isManagerOrOwner = membership.role === Role.MANAGER || membership.role === Role.OWNER;
+  const isAssignedMember = keyResult.objective.owner.userId === user.id;
+
+  if (!isManagerOrOwner && !isAssignedMember) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const update = await prisma.weeklyUpdate.create({
+    data: {
+      keyResultId,
+      userId: user.id,
+      weekStart,
+      value,
+      confidence,
+      status,
+      blockers,
+      nextStep,
+    },
+  });
+
+  return NextResponse.json(update);
 }
