@@ -2,11 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
-
-function progress(baseline: number, target: number, value: number) {
-  const pct = ((value - baseline) / (target - baseline)) * 100;
-  return Math.max(0, Math.min(100, Math.round(pct)));
-}
+import { progress } from '@/lib/progress';
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
