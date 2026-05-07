@@ -29,6 +29,11 @@ export default async function DashboardPage({
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect('/login');
 
+  const membership = await prisma.membership.findFirst({
+    where: { user: { email: session.user.email } },
+    include: { workspace: true },
+  });
+  if (!membership) redirect('/login');
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: { memberships: { include: { workspace: true } } },
@@ -72,6 +77,14 @@ export default async function DashboardPage({
       status: 'ACTIVE',
       status: CycleStatus.ACTIVE,
   const krs = await prisma.keyResult.findMany({
+    where: {
+      objective: {
+        cycle: {
+          workspaceId: membership.workspaceId,
+          status: 'ACTIVE',
+        },
+      },
+    },
     where: { objective: { cycleId, cycle: { workspaceId } } },
     include: {
       objective: { include: { owner: { include: { user: true } } } },
@@ -151,6 +164,8 @@ export default async function DashboardPage({
   return (
     <main className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Weekly OKR Dashboard</h1>
+      <p className="text-sm text-slate-600">Workspace: {membership.workspace.name}</p>
+      <p className="text-sm text-slate-600">Focus: progress, confidence, status, blockers, next step.</p>
       <p className="text-sm text-slate-600">Focus: progress, confidence, status, blockers, next step.</p>
       <div className="flex flex-wrap gap-2">
         <a href={`/api/dashboard/summary?${params.toString()}`} className="bg-slate-800 text-white px-3 py-2 rounded text-sm">
@@ -229,6 +244,10 @@ export default async function DashboardPage({
         {krs.map((kr) => {
           const u = kr.updates[0];
           const stale = !u || (Date.now() - new Date(u.weekStart).getTime()) / 86400000 > 10;
+          return (
+            <div key={kr.id} className="bg-white border rounded p-4">
+              <p className="font-medium">{kr.objective.title} → {kr.title}</p>
+              <p className="text-sm">Progress: {u ? progress(kr.baseline, kr.target, u.value) : 0}% | Confidence: {u?.confidence ?? 'N/A'} | Status: {u?.status ?? 'N/A'}</p>
 
           return (
             <div key={kr.id} className="bg-white border rounded p-4">
