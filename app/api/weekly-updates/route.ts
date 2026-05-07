@@ -53,8 +53,8 @@ const createWeeklyUpdateSchema = z.object({
   keyResultId: z.string().cuid(),
   weekStart: z.coerce.date(),
   value: z.number().finite(),
-  confidence: z.nativeEnum(Confidence),
-  status: z.nativeEnum(HealthStatus),
+  confidence: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  status: z.enum(['ON_TRACK', 'AT_RISK', 'OFF_TRACK']),
   blockers: z.string().trim().optional().nullable(),
   nextStep: z.string().trim().min(1),
 });
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const isManagerOrOwner = membership.role === Role.MANAGER || membership.role === Role.OWNER;
+  const isManagerOrOwner = membership.role === 'MANAGER' || membership.role === 'OWNER';
   const isAssignedMember = keyResult.objective.owner.userId === user.id;
 
   if (!isManagerOrOwner && !isAssignedMember) {

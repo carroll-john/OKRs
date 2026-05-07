@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "prebuild": "prisma generate"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
