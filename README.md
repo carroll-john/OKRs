@@ -60,3 +60,9 @@ So the supported swap is:
    - `npm run prisma:seed`
 
 If you want a full Prisma-to-Supabase-client rewrite, that is possible, but it requires replacing all `prisma.*` queries in auth, API routes, seed scripts, and dashboard data loading.
+
+## Architecture notes
+- API routes in `app/api/*` should remain thin orchestration layers.
+- Shared server-side authorization and aggregation logic lives in `lib/server/*`.
+- Shared request schemas live in `lib/validation/*`.
+- Foundation checklist and structure plan: `docs/architecture-foundation-plan.md`.

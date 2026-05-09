@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-
-const STALE_DAYS = 10;
+import { getAuthenticatedUser, isWorkspaceMember } from '@/lib/server/authz';
+import { summarizeLatestUpdates } from '@/lib/server/dashboard';
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -18,13 +16,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'workspaceId and cycleId are required' }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: { memberships: true },
-  });
-
-  const isMember = user?.memberships.some((m) => m.workspaceId === workspaceId);
-  if (!user || !isMember) {
+  const member = await isWorkspaceMember(user.id, workspaceId);
+  if (!member) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -35,39 +28,11 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const now = Date.now();
-  let onTrack = 0;
-  let atRisk = 0;
-  let offTrack = 0;
-  let staleUpdates = 0;
-  const blockers: Array<{ keyResultId: string; keyResult: string; blocker: string }> = [];
-
-  for (const kr of krs) {
-    const update = kr.updates[0];
-    if (!update) {
-      staleUpdates += 1;
-      continue;
-    }
-
-    if ((now - update.weekStart.getTime()) / 86400000 > STALE_DAYS) {
-      staleUpdates += 1;
-    }
-
-    if (update.status === 'ON_TRACK') onTrack += 1;
-    if (update.status === 'AT_RISK') atRisk += 1;
-    if (update.status === 'OFF_TRACK') offTrack += 1;
-
-    if (update.blockers?.trim()) {
-      blockers.push({ keyResultId: kr.id, keyResult: kr.title, blocker: update.blockers.trim() });
-    }
-  }
+  const summary = summarizeLatestUpdates(krs);
 
   return NextResponse.json({
     workspaceId,
     cycleId,
-    counts: { onTrack, atRisk, offTrack },
-    staleUpdates,
-    blockerCount: blockers.length,
-    blockers,
+    ...summary,
   });
 }
