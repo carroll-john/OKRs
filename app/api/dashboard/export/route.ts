@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { progress } from '@/lib/progress';
-
-function csvEscape(value: string | number) {
-  const s = String(value ?? '');
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
+import { getAuthenticatedUser, isWorkspaceMember } from '@/lib/server/authz';
+import { csvEscape } from '@/lib/server/csv';
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -28,13 +20,8 @@ export async function GET(req: NextRequest) {
   const status = url.searchParams.get('status');
   const staleOnly = url.searchParams.get('staleOnly') === '1';
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: { memberships: true },
-  });
-
-  const isMember = user?.memberships.some((m) => m.workspaceId === workspaceId);
-  if (!user || !isMember) {
+  const member = await isWorkspaceMember(user.id, workspaceId);
+  if (!member) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -52,27 +39,29 @@ export async function GET(req: NextRequest) {
   });
 
   const filtered = krs.filter((kr) => {
-    const u = kr.updates[0];
-    const stale = !u || (Date.now() - new Date(u.weekStart).getTime()) / 86400000 > 10;
-    if (status && u?.status !== status) return false;
+    const update = kr.updates[0];
+    const stale = !update || (Date.now() - update.weekStart.getTime()) / 86400000 > 10;
+    if (status && update?.status !== status) return false;
     if (staleOnly && !stale) return false;
     return true;
   });
 
   const headers = ['objective', 'KR', 'owner', 'progress %', 'confidence', 'status', 'blockers', 'next step', 'weekStart'];
   const rows = filtered.map((kr) => {
-    const u = kr.updates[0];
+    const update = kr.updates[0];
     return [
       kr.objective.title,
       kr.title,
       kr.objective.owner.user.name,
-      u ? progress(kr.baseline, kr.target, u.value) : 0,
-      u?.confidence ?? '',
-      u?.status ?? '',
-      u?.blockers ?? '',
-      u?.nextStep ?? '',
-      u?.weekStart.toISOString().slice(0, 10) ?? '',
-    ].map(csvEscape).join(',');
+      update ? progress(kr.baseline, kr.target, update.value) : 0,
+      update?.confidence ?? '',
+      update?.status ?? '',
+      update?.blockers ?? '',
+      update?.nextStep ?? '',
+      update?.weekStart.toISOString().slice(0, 10) ?? '',
+    ]
+      .map(csvEscape)
+      .join(',');
   });
 
   const csv = [headers.join(','), ...rows].join('\n');
