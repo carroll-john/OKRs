@@ -8,7 +8,11 @@
 - [x] Extract shared CSV escaping utility.
 - [x] Keep route files thin and orchestration-focused.
 - [x] Re-run unit tests after refactor.
-- [ ] Pick roadmap path (product depth vs platform/ops vs data layer rewrite).
+- [x] Pick roadmap path: platform/ops first, so direct-to-main work has automated verification.
+
+## Roadmap path
+
+Platform/ops is the next path. The immediate goal is to make direct `main` work low-friction without relying on manual GitHub PR approval, while keeping automated checks visible and repeatable.
 
 ## Suggested project structure
 
@@ -34,5 +38,5 @@ This structure keeps concerns isolated so you can iterate on one surface area wi
 
 1. Move dashboard/export data-fetch logic into `lib/server/dashboard-service.ts`.
 2. Add API route tests for `app/api/dashboard/*` handlers.
-3. Add CI for `npm test`, `npm run build`, and linting.
+3. Add CI for `npm test`, `npm run build`, and linting. (done)
 4. Add typed DTOs for API responses in `lib/server/types.ts`.
