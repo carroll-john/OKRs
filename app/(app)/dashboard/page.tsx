@@ -236,6 +236,7 @@ function DashboardView({
         </div>
         <div className="flex flex-wrap gap-2">
           {demoMode && <span className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-700 ring-1 ring-amber-200">Local demo mode</span>}
+          <a href="/plan-quarter" className="rounded bg-slate-950 px-3 py-2 text-sm font-medium text-white">Plan quarter</a>
           {exportHref && <a href={exportHref} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700">Export CSV</a>}
         </div>
       </header>

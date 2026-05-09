@@ -1,5 +1,6 @@
 import type { WorkflowFilters, WorkflowObjective } from '@/lib/okr-workflow';
 import { filterWorkflowObjectives } from '@/lib/okr-workflow';
+import type { QuarterPlan } from '@/lib/quarter-plan';
 
 export const DEMO_EMAIL = 'manager@demo.com';
 export const DEMO_PASSWORD = 'password123';
@@ -98,4 +99,32 @@ export function getDemoDashboardObjectives(filters: WorkflowFilters = {}) {
 
 export function getAllDemoDashboardObjectives() {
   return demoObjectives;
+}
+
+export function getDemoQuarterPlan(): QuarterPlan {
+  return {
+    workspaceName: 'Product & Eng Team',
+    cycleName: 'Q2 2026',
+    objectives: demoObjectives.map((objective) => ({
+      id: objective.id,
+      title: objective.title,
+      ownerName: objective.ownerName,
+      keyResults: objective.keyResults.map((keyResult) => ({
+        id: keyResult.id,
+        title: keyResult.title,
+        metricUnit: keyResult.metricUnit,
+        baseline: keyResult.baseline,
+        target: keyResult.target,
+        ownerName: keyResult.ownerName,
+        initiatives: keyResult.initiatives.map((initiative) => ({
+          id: initiative.id,
+          title: initiative.title,
+          ownerName: initiative.ownerName,
+          status: initiative.status,
+          dueDate: initiative.dueDate ? initiative.dueDate.toISOString().slice(0, 10) : '',
+          notes: initiative.notes ?? '',
+        })),
+      })),
+    })),
+  };
 }
