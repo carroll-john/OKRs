@@ -36,7 +36,7 @@ This structure keeps concerns isolated so you can iterate on one surface area wi
 
 ## Near-term incremental refactors
 
-1. Move dashboard/export data-fetch logic into `lib/server/dashboard-service.ts`.
-2. Add API route tests for `app/api/dashboard/*` handlers.
+1. Move dashboard/export data-fetch logic into `lib/server/dashboard-service.ts`. (done)
+2. Add API route tests for `app/api/dashboard/*` handlers. (done)
 3. Add CI for `npm test`, `npm run build`, and linting. (done)
-4. Add typed DTOs for API responses in `lib/server/types.ts`.
+4. Add typed DTOs for API responses in `lib/server/types.ts`. (done)

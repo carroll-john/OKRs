@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
 import { getAuthenticatedUser, isWorkspaceMember } from '@/lib/server/authz';
-import { summarizeLatestUpdates } from '@/lib/server/dashboard';
+import { getDashboardSummary } from '@/lib/server/dashboard-service';
 
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser();
@@ -21,18 +20,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const krs = await prisma.keyResult.findMany({
-    where: { objective: { cycleId, cycle: { workspaceId } } },
-    include: {
-      updates: { orderBy: { weekStart: 'desc' }, take: 1 },
-    },
-  });
-
-  const summary = summarizeLatestUpdates(krs);
-
-  return NextResponse.json({
-    workspaceId,
-    cycleId,
-    ...summary,
-  });
+  return NextResponse.json(await getDashboardSummary(workspaceId, cycleId));
 }
