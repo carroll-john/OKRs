@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { getDemoDashboardKeyResults, isLocalDemoMode } from '@/lib/demo-data';
 import { progress } from '@/lib/progress';
 
 type DashboardSearchParams = {
@@ -35,6 +36,60 @@ export default async function DashboardPage({
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect('/login');
 
+  const params = searchParams ?? {};
+  if (isLocalDemoMode()) {
+    const krs = getDemoDashboardKeyResults(params);
+    return (
+      <main className="p-6 space-y-4">
+        <h1 className="text-2xl font-semibold">Weekly OKR Dashboard</h1>
+        <p className="text-sm text-slate-600">Workspace: Product &amp; Eng Team</p>
+        <p className="text-sm text-slate-600">Focus: progress, confidence, status, blockers, next step.</p>
+        <p className="text-sm text-amber-700">Local demo mode: set DATABASE_URL to use a real database.</p>
+
+        <form className="grid gap-2 md:grid-cols-5 bg-white border rounded p-3" method="GET">
+          <select name="status" defaultValue={params.status ?? ''} className="border rounded px-2 py-1">
+            <option value="">All statuses</option>
+            {(['ON_TRACK', 'AT_RISK', 'OFF_TRACK'] as const).map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+
+          <select name="confidence" defaultValue={params.confidence ?? ''} className="border rounded px-2 py-1">
+            <option value="">All confidence</option>
+            {(['LOW', 'MEDIUM', 'HIGH'] as const).map((confidence) => (
+              <option key={confidence} value={confidence}>{confidence}</option>
+            ))}
+          </select>
+
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" name="staleOnly" value="1" defaultChecked={params.staleOnly === '1'} /> stale only
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" name="blockersOnly" value="1" defaultChecked={params.blockersOnly === '1'} /> blockers only
+          </label>
+
+          <button type="submit" className="bg-slate-900 text-white rounded px-3 py-1 w-fit">Apply filters</button>
+        </form>
+
+        <p className="text-sm text-slate-600">Active cycle: Q2 2026</p>
+
+        <div className="grid gap-3">
+          {krs.map((kr) => (
+            <div key={kr.id} className="bg-white border rounded p-4">
+              <p className="font-medium">{kr.objective} → {kr.keyResult}</p>
+              <p className="text-sm">Owner: {kr.objectiveOwner}</p>
+              <p className="text-sm text-slate-600">KR owner: {kr.keyResultOwner}</p>
+              <p className="text-sm">Progress: {kr.progress}% | Confidence: {kr.update?.confidence ?? 'N/A'} | Status: {kr.update?.status ?? 'N/A'}</p>
+              <p className="text-sm">Blockers: {kr.update?.blockers || 'None'}</p>
+              <p className="text-sm">Next step: {kr.update?.nextStep || 'No update yet'}</p>
+              {kr.isStale && <p className="text-amber-600 text-sm mt-1">Stale update: needs weekly check-in</p>}
+            </div>
+          ))}
+        </div>
+      </main>
+    );
+  }
+
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: { memberships: { include: { workspace: true } } },
@@ -44,7 +99,6 @@ export default async function DashboardPage({
     return <main className="p-6">No workspaces found.</main>;
   }
 
-  const params = searchParams ?? {};
   const activeWorkspaceId = user.memberships.some((m) => m.workspaceId === params.workspaceId)
     ? params.workspaceId!
     : user.memberships[0].workspaceId;

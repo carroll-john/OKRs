@@ -22,6 +22,8 @@ No task management, performance review workflows, weighted scoring, Jira/Linear,
 
 Demo login: `manager@demo.com` / `password123`
 
+For a quick UI preview, you can skip `DATABASE_URL`. The app will run in local demo mode with the same demo login and seeded dashboard data. Set `DATABASE_URL` when you want persistence and database-backed API behavior.
+
 ## Deploying on Vercel
 Yes — this project can be deployed on Vercel.
 
