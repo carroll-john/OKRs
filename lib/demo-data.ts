@@ -1,4 +1,5 @@
-import { progress } from '@/lib/progress';
+import type { WorkflowFilters, WorkflowObjective } from '@/lib/okr-workflow';
+import { filterWorkflowObjectives } from '@/lib/okr-workflow';
 
 export const DEMO_EMAIL = 'manager@demo.com';
 export const DEMO_PASSWORD = 'password123';
@@ -12,58 +13,89 @@ export function isLocalDemoMode() {
   return !process.env.DATABASE_URL;
 }
 
-export type DemoDashboardSearchParams = {
-  status?: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK';
-  confidence?: 'LOW' | 'MEDIUM' | 'HIGH';
-  staleOnly?: '1';
-  blockersOnly?: '1';
-};
-
-const demoKeyResults = [
+const demoObjectives: WorkflowObjective[] = [
   {
-    id: 'cm_seed_kr_id',
-    objective: 'Improve activation',
-    keyResult: 'Increase activation rate',
-    objectiveOwner: 'Demo Manager',
-    keyResultOwner: 'Demo Manager',
-    baseline: 28,
-    target: 40,
-    update: {
-      weekStart: new Date('2026-05-04'),
-      value: 31,
-      confidence: 'MEDIUM' as const,
-      status: 'AT_RISK' as const,
-      blockers: 'Experiment analysis delayed',
-      nextStep: 'Ship revised onboarding variant',
-    },
-  },
-  {
-    id: 'demo-stale-kr',
-    objective: 'Improve activation',
-    keyResult: 'Reduce setup friction',
-    objectiveOwner: 'Demo Manager',
-    keyResultOwner: 'Demo Manager',
-    baseline: 5,
-    target: 2,
-    update: null,
+    id: 'demo-objective-activation',
+    title: 'Improve activation',
+    ownerName: 'Demo Manager',
+    keyResults: [
+      {
+        id: 'cm_seed_kr_id',
+        title: 'Increase activation rate',
+        metricUnit: '%',
+        baseline: 28,
+        target: 40,
+        ownerName: 'Demo Manager',
+        latestUpdate: {
+          weekStart: new Date('2026-05-04'),
+          value: 31,
+          confidence: 'MEDIUM',
+          status: 'AT_RISK',
+          blockers: 'Experiment analysis delayed',
+          nextStep: 'Ship revised onboarding variant',
+        },
+        initiatives: [
+          {
+            id: 'demo-initiative-onboarding',
+            title: 'Ship revised onboarding variant',
+            ownerName: 'Demo Manager',
+            status: 'IN_PROGRESS',
+            dueDate: new Date('2026-05-22'),
+            notes: 'Variant copy and instrumentation are in progress.',
+          },
+          {
+            id: 'demo-initiative-analysis',
+            title: 'Resolve experiment analysis delay',
+            ownerName: 'Demo Manager',
+            status: 'BLOCKED',
+            dueDate: new Date('2026-05-15'),
+            notes: 'Waiting on event quality checks.',
+          },
+          {
+            id: 'demo-initiative-learnings',
+            title: 'Publish activation learnings',
+            ownerName: 'Demo Manager',
+            status: 'NOT_STARTED',
+            dueDate: new Date('2026-06-07'),
+            notes: null,
+          },
+        ],
+      },
+      {
+        id: 'demo-stale-kr',
+        title: 'Reduce setup friction',
+        metricUnit: 'steps',
+        baseline: 5,
+        target: 2,
+        ownerName: 'Demo Manager',
+        latestUpdate: null,
+        initiatives: [
+          {
+            id: 'demo-initiative-setup-audit',
+            title: 'Audit account setup drop-off points',
+            ownerName: 'Demo Manager',
+            status: 'DONE',
+            dueDate: new Date('2026-04-30'),
+            notes: 'Baseline friction map completed.',
+          },
+          {
+            id: 'demo-initiative-empty-state',
+            title: 'Simplify first project empty state',
+            ownerName: 'Demo Manager',
+            status: 'IN_PROGRESS',
+            dueDate: new Date('2026-05-29'),
+            notes: null,
+          },
+        ],
+      },
+    ],
   },
 ];
 
-export function getDemoDashboardKeyResults(params: DemoDashboardSearchParams = {}) {
-  return demoKeyResults
-    .map((kr) => {
-      const isStale = !kr.update || (Date.now() - kr.update.weekStart.getTime()) / 86_400_000 > 10;
-      return {
-        ...kr,
-        progress: kr.update ? progress(kr.baseline, kr.target, kr.update.value) : 0,
-        isStale,
-      };
-    })
-    .filter((kr) => {
-      if (params.status && kr.update?.status !== params.status) return false;
-      if (params.confidence && kr.update?.confidence !== params.confidence) return false;
-      if (params.blockersOnly && !kr.update?.blockers?.trim()) return false;
-      if (params.staleOnly && !kr.isStale) return false;
-      return true;
-    });
+export function getDemoDashboardObjectives(filters: WorkflowFilters = {}) {
+  return filterWorkflowObjectives(demoObjectives, filters);
+}
+
+export function getAllDemoDashboardObjectives() {
+  return demoObjectives;
 }

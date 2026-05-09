@@ -32,6 +32,13 @@ enum HealthStatus {
   OFF_TRACK
 }
 
+enum InitiativeStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
 model User {
   id           String         @id @default(cuid())
   name         String
@@ -57,6 +64,7 @@ model Membership {
   workspace       Workspace   @relation(fields: [workspaceId], references: [id])
   objectives      Objective[]
   ownedKeyResults KeyResult[]
+  initiatives     Initiative[]
 
   @@unique([userId, workspaceId])
 }
@@ -93,6 +101,21 @@ model KeyResult {
   objective         Objective      @relation(fields: [objectiveId], references: [id])
   owner             Membership     @relation(fields: [ownerMembershipId], references: [id])
   updates           WeeklyUpdate[]
+  initiatives       Initiative[]
+}
+
+model Initiative {
+  id                String           @id @default(cuid())
+  keyResultId       String
+  ownerMembershipId String
+  title             String
+  status            InitiativeStatus @default(NOT_STARTED)
+  dueDate           DateTime?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  keyResult         KeyResult        @relation(fields: [keyResultId], references: [id])
+  owner             Membership       @relation(fields: [ownerMembershipId], references: [id])
 }
 
 model WeeklyUpdate {
